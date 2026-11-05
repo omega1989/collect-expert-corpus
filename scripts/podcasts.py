@@ -5,6 +5,7 @@ Usage:
   .venv/bin/python tools/podcasts.py <subject> collect    # parse raw/podcasts/feeds/<show-slug>.xml, write episode .md files
 Shows listed in cfg hosted_shows keep every in-window episode; other shows only episodes naming the subject.
 """
+import hashlib
 import json
 import re
 import sys
@@ -25,7 +26,7 @@ UA = {"User-Agent": "Mozilla/5.0 (research script)"}
 
 
 def slug(s, n=70):
-    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:n]
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:n] or hashlib.sha1(s.encode()).hexdigest()[:10]
 
 
 def discover():
@@ -48,16 +49,24 @@ def discover():
 
 
 def collect():
-    n = 0
+    n, errors = 0, []
     for feed in sorted(FEEDS.glob("*.xml")):
         show_slug = feed.stem
-        channel = ET.parse(feed).getroot().find("channel")
-        show = channel.findtext("title")
+        try:
+            channel = ET.parse(feed).getroot().find("channel")
+            show = channel.findtext("title")
+        except (ET.ParseError, AttributeError) as e:  # e.g. a Cloudflare HTML page saved as .xml
+            errors.append(f"{feed.name}: not an RSS feed ({e.__class__.__name__})")
+            continue
         outdir = POD / show_slug
         for item in channel.findall("item"):
             title = item.findtext("title") or ""
             desc_html = item.findtext("description") or ""
-            date = parsedate_to_datetime(item.findtext("pubDate")).date().isoformat()
+            try:
+                date = parsedate_to_datetime(item.findtext("pubDate")).date().isoformat()
+            except (TypeError, ValueError):
+                errors.append(f"{feed.name}: no/invalid pubDate for {title[:80]!r}")
+                continue
             if not SINCE <= date <= UNTIL:
                 continue
             if show_slug not in HOSTED and not CFG["match_re"].search(f"{title} {desc_html}"):
@@ -65,7 +74,10 @@ def collect():
             outdir.mkdir(exist_ok=True)
             dest = outdir / f"{date}_{slug(title)}.md"
             if dest.exists():
-                continue
+                if f"title: {json.dumps(title, ensure_ascii=False)}\n" not in dest.read_text():  # same day, different episode
+                    dest = outdir / f"{date}_{slug(title)}-{hashlib.sha1(title.encode()).hexdigest()[:6]}.md"
+                if dest.exists():
+                    continue
             tr = item.find("podcast:transcript", NS)
             transcript = "(no transcript in feed)"
             if tr is not None:
@@ -88,7 +100,9 @@ def collect():
             )
             n += 1
             print(f"{date}  {show}  {title[:80]}", flush=True)
-    print(f"wrote {n} episodes")
+    if errors:
+        (POD / "_collect_errors.txt").write_text("\n".join(errors) + "\n")
+    print(f"wrote {n} episodes; {len(errors)} feed/item errors" + (" (see raw/podcasts/_collect_errors.txt)" if errors else ""))
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """Create (or refresh the tools of) an expert-corpus project.
 
 Usage:
-  python3 init_project.py <project_dir> --title "Koray Tuğberk GÜBÜR" [--years 2 | --since 2024-11-05 --until 2026-11-05]
+  python3 init_project.py <project_dir> --title "Jane Doe" [--years 2 | --since 2024-11-05 --until 2026-11-05]
   python3 init_project.py <project_dir> --update-tools     # recopy scripts, keep data and project.json
 Creates project.json, tools/ (copies of this folder with __PROJECT_DIR__ filled in) and .venv with yt-dlp etc.
 Prints warnings for missing external tools (ffmpeg, whisper-cli + model, ego-browser).
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-PACKAGES = ["yt-dlp", "requests", "beautifulsoup4", "curl-cffi", "lxml", "trafilatura"]
+PACKAGES = ["yt-dlp", "requests", "beautifulsoup4", "lxml"]
 NOT_COPIED = {"init_project.py", "new_subject.py"}
 MODEL = Path.home() / ".cache" / "whisper" / "ggml-large-v3-turbo-q5_0.bin"
 
@@ -30,12 +30,22 @@ def copy_tools(project):
         text = f.read_text().replace("__PROJECT_DIR__", str(project))
         (tools / f.name).write_text(text)
         n += 1
-    leftover = [f.name for f in tools.iterdir() if "__PROJECT_DIR__" in f.read_text()]
+    leftover = [f.name for f in tools.iterdir() if f.suffix in (".py", ".mjs") and "__PROJECT_DIR__" in f.read_text()]
     assert not leftover, f"placeholder left in {leftover}"
     return n
 
 
+def iso(s):
+    try:
+        return dt.date.fromisoformat(s).isoformat()
+    except ValueError:
+        raise SystemExit(f"date must be YYYY-MM-DD, got {s!r}")
+
+
 def main():
+    if sys.version_info < (3, 11):
+        raise SystemExit(f"Python {sys.version.split()[0]} is too old: yt-dlp needs 3.11+. "
+                         "Install a newer one (brew install python@3.12) and run this script with python3.12.")
     ap = argparse.ArgumentParser()
     ap.add_argument("project")
     ap.add_argument("--title")
@@ -53,8 +63,8 @@ def main():
         assert a.title, "--title is required for a new project"
         assert not pj.exists(), f"{pj} exists: use --update-tools to refresh tools only"
         today = dt.date.today()
-        until = a.until or today.isoformat()
-        since = a.since or today.replace(year=today.year - a.years).isoformat()
+        until = iso(a.until) if a.until else today.isoformat()
+        since = iso(a.since) if a.since else (today - dt.timedelta(days=round(365.25 * a.years))).isoformat()
         assert since < until, "since must be before until"
         project.mkdir(parents=True, exist_ok=True)
         pj.write_text(json.dumps({"title": a.title, "since": since, "until": until, "subjects": [],

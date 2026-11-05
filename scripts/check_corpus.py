@@ -4,8 +4,10 @@ Usage: .venv/bin/python tools/check_corpus.py            (run from the project d
 Checks:
   1 dates     every corpus .md has a front-matter date inside [since, until] (undated web guides must say date_type)
   2 transcripts  no "(no transcript in feed)" placeholder left, except files tagged subject_speaks: no
-  3 youtube   every id in each _queue.txt has a transcript or a line in _transcript_fail.txt
-  4 linkedin  every linkedin_feed reached the window start (_done) or README.md explains the gap
+  3 youtube   every id in each _queue.txt has a transcript or a permanent line in _transcript_fail.txt
+              (fail reasons are counted so the reader can judge them)
+  4 linkedin  every linkedin_feed has raw/social/linkedin/_done (window start or feed end reached)
+              or a non-empty raw/social/linkedin/_gap.md saying why it stopped
   5 docs      README.md + INDEX.md at root, INDEX.md per subject, all rebuilt after the newest data file
   6 zip       ../<project>-corpus-*.zip exists, is newer than INDEX.md, passes testzip, has no .venv/
 """
@@ -15,7 +17,7 @@ import sys
 import zipfile
 from collections import Counter
 
-from common import BASE, SINCE, UNTIL, subjects
+from common import BASE, SINCE, UNTIL, ids_from, subjects
 
 PLACEHOLDER = "(no transcript in feed)"
 results, counts = [], Counter()
@@ -36,15 +38,12 @@ def corpus_files(root):
             yield f
 
 
-def lines(p):
-    return [l.split("|")[0].strip() for l in p.read_text().splitlines() if l.strip()] if p.exists() else []
-
-
 def check(name, ok, detail):
     results.append((name, ok, detail))
 
 
 bad_dates, placeholders, unasked, yt_pending, li_open, newest = [], [], 0, [], [], 0.0
+fail_reasons = Counter()
 for root in subjects():
     rel = root.relative_to(BASE)
     for f in corpus_files(root):
@@ -62,10 +61,14 @@ for root in subjects():
                 placeholders.append(str(f.relative_to(BASE)))
     yt = root / "raw" / "youtube"
     done = {p.stem for p in (yt / "transcripts").glob("*.json")}
-    failed = set(lines(yt / "_transcript_fail.txt"))
-    yt_pending += [f"{rel}:{i}" for i in lines(yt / "_queue.txt") if i not in done | failed]
+    failed = set(ids_from(yt / "_transcript_fail.txt"))
+    if (yt / "_transcript_fail.txt").exists():
+        fail_reasons.update(l.split("|", 1)[-1].strip() for l in (yt / "_transcript_fail.txt").read_text().splitlines() if "|" in l)
+    yt_pending += [f"{rel}:{i}" for i in ids_from(yt / "_queue.txt") if i not in done | failed]
     cfg = json.loads((root / "config.json").read_text())
-    if cfg.get("linkedin_feed") and not (root / "raw" / "social" / "linkedin" / "_done").exists():
+    li = root / "raw" / "social" / "linkedin"
+    gap = li / "_gap.md"
+    if cfg.get("linkedin_feed") and not (li / "_done").exists() and not (gap.exists() and gap.read_text().strip()):
         li_open.append(str(rel))
     if not (root / "INDEX.md").exists() or (root / "INDEX.md").stat().st_mtime < newest:
         check("5 docs", False, f"{rel}/INDEX.md missing or older than data: run build_md.py all")
@@ -73,9 +76,9 @@ for root in subjects():
 readme = BASE / "README.md"
 check("1 dates", not bad_dates, f"{len(bad_dates)} out of window/missing: {bad_dates[:5]}")
 check("2 transcripts", not placeholders, f"{len(placeholders)} placeholders left (+{unasked} skipped, subject not speaking): {placeholders[:5]}")
-check("3 youtube", not yt_pending, f"{len(yt_pending)} queued without transcript/fail line: {yt_pending[:5]}")
-li_ok = not li_open or (readme.exists() and "LinkedIn" in readme.read_text())
-check("4 linkedin", li_ok, f"feeds not at window start: {li_open}" + (" (gap noted in README)" if li_open and li_ok else ""))
+check("3 youtube", not yt_pending, f"{len(yt_pending)} queued without transcript/fail line: {yt_pending[:5]}; "
+      f"failed by reason: {dict(fail_reasons.most_common(6))}")
+check("4 linkedin", not li_open, f"feeds with neither _done nor _gap.md: {li_open}")
 index = BASE / "INDEX.md"
 docs_ok = readme.exists() and index.exists() and index.stat().st_mtime >= newest
 if not any(n == "5 docs" for n, _, _ in results):

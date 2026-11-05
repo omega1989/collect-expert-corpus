@@ -8,6 +8,7 @@ Each subject lives in <slug>/ or <group>/<slug>/ with a config.json:
   linkedin_feed (recent-activity URL).
 Tools take the subject folder as first argument: .venv/bin/python tools/<tool>.py <subject> ...
 """
+import datetime as dt
 import json
 import re
 import sys
@@ -16,6 +17,18 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent.parent
 PROJECT = json.loads((BASE / "project.json").read_text())
 SINCE, UNTIL = PROJECT["since"], PROJECT["until"]
+
+
+def ids_from(path):
+    """Ids from a list file (_extra/_exclude/_queue/_candidates): first token before '|', whitespace or '#'."""
+    if not path.exists():
+        return []
+    return [re.split(r"[|\s#]", l.strip())[0] for l in path.read_text().splitlines()
+            if l.strip() and not l.strip().startswith("#")]
+
+
+def days_before(iso_date, days):
+    return (dt.date.fromisoformat(iso_date) - dt.timedelta(days=days)).isoformat()
 
 
 def subjects():

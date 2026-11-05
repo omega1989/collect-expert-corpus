@@ -14,7 +14,7 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from common import BASE, SINCE, UNTIL, load
+from common import BASE, SINCE, UNTIL, days_before, ids_from, load
 
 CFG = load()
 YT = CFG["root"] / "raw" / "youtube"
@@ -23,16 +23,32 @@ TRANSCRIPTS = YT / "transcripts"
 YTDLP = str(BASE / ".venv" / "bin" / "yt-dlp")
 SINCE_D, UNTIL_D = SINCE.replace("-", ""), UNTIL.replace("-", "")
 # Flat channel listings only give approximate dates ("3 months ago"); keep a margin, exact dates come from meta.
-APPROX_SINCE = str(int(SINCE_D) - 300)  # ≈3 months earlier (yyyymmdd arithmetic)
+APPROX_SINCE = days_before(SINCE, 92).replace("-", "")  # flat-listing dates are approximate: keep ~3 months margin
 MIN_SECONDS = 75  # shorter = Shorts / teasers, skipped
 
 
+BLOCKED = re.compile(r"HTTP Error 429|confirm you.re not a bot|Sign in to confirm", re.I)
+ERRLOG = YT / "_ytdlp_errors.log"
+
+
+class Blocked(SystemExit):
+    pass
+
+
 def run(args, timeout=300):
+    """Run yt-dlp; stop the whole command when YouTube rate-limits, log every other error."""
     try:
-        return subprocess.run([YTDLP, "--js-runtimes", "node", *args],
-                              capture_output=True, text=True, timeout=timeout).stdout
+        r = subprocess.run([YTDLP, "--js-runtimes", "node", *args], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return ""
+        r = subprocess.CompletedProcess(args, -1, "", "timeout")
+    if r.returncode != 0:
+        if BLOCKED.search(r.stderr):
+            raise Blocked("YouTube is rate-limiting this IP (429 / bot check). Wait ~30 min, then rerun; "
+                          "finished work is kept. Never run yt-dlp from several processes at once.")
+        YT.mkdir(parents=True, exist_ok=True)
+        with open(ERRLOG, "a") as fh:
+            fh.write(f"{args[-1]} rc={r.returncode} {(r.stderr.strip().splitlines() or [''])[-1]}\n")
+    return r.stdout
 
 
 def channel():
@@ -64,12 +80,6 @@ def search():
     (YT / "_candidates.txt").write_text("\n".join(f"{k}|{v}" for k, v in seen.items()) + "\n")
 
 
-def ids_from(path):
-    if not path.exists():
-        return []
-    return [re.split(r"[|\s#]", l.strip())[0] for l in path.read_text().splitlines() if l.strip() and not l.startswith("#")]
-
-
 def fetch_meta(vid):
     dest = META / f"{vid}.json"
     if dest.exists():
@@ -92,7 +102,7 @@ def meta():
         ids += ids_from(YT / f)
     ids = list(dict.fromkeys(ids))
     print(f"{len(ids)} ids", flush=True)
-    with ThreadPoolExecutor(2) as ex:
+    with ThreadPoolExecutor(1) as ex:  # one request at a time: YouTube blocks bursts from one IP
         for i, (vid, status) in enumerate(ex.map(fetch_meta, ids), 1):
             if status != "cached":
                 print(f"[{i}/{len(ids)}] {vid} {status}", flush=True)
@@ -131,7 +141,10 @@ def queue():
     (YT / "_queue.txt").write_text("\n".join(r[1] for r in rows) + ("\n" if rows else ""))
     (YT / "_skipped.md").write_text("# Video trong kỳ nhưng không lấy transcript\n\n| upload | id | kênh | tiêu đề | lý do |\n|---|---|---|---|---|\n"
                                     + "\n".join(sorted(skipped, reverse=True)) + "\n")
-    print(f"queue: {len(rows)} videos, {sum(r[2] for r in rows) / 3600:.1f}h; skipped {len(skipped)}")
+    missing = [i for i in dict.fromkeys(ids_from(YT / "_channel_videos.txt") + ids_from(YT / "_candidates.txt")
+                                        + list(extra)) if not (META / f"{i}.json").exists()]
+    print(f"queue: {len(rows)} videos, {sum(r[2] for r in rows) / 3600:.1f}h; skipped {len(skipped)}; "
+          f"ids still without metadata: {len(missing)}" + (" (rerun meta)" if missing else ""))
 
 
 if __name__ == "__main__":

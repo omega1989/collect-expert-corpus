@@ -1,8 +1,8 @@
 """Add one subject (person or organisation) to a project and write its config.json skeleton.
 
 Usage:
-  python3 new_subject.py <project_dir> <path> --name "Nathan Gotch" --kind person \
-      --match "nathan gotch" "gotch seo" [--speaker "^(nathan|gotch)\\b"]
+  python3 new_subject.py <project_dir> <path> --name "Jane Doe" --kind person \
+      --match "jane doe" "doe seo" [--speaker "^(jane|doe)\\b"]
 <path> is <slug> or <group>/<slug> (e.g. source/savannah-sanchez). Fill the remaining config fields
 (own_channels, yt_queries, pod_terms, hosted_shows, linkedin_feed…) during source discovery.
 """

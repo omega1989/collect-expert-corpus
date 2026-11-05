@@ -1,6 +1,8 @@
 // Scrape LinkedIn posts through ego-browser (user's logged-in session), page "p2".
 // Works on the first subject (project.json order, config.json with linkedin_feed) whose
-// raw/social/linkedin/_done marker is missing; the marker is written once the feed reaches SINCE.
+// raw/social/linkedin/_done marker is missing; the marker is written once the feed reaches SINCE or
+// stops loading (feed end). A subject whose feed loads nothing gets _gap.md (check login / URL) and is skipped;
+// write _gap.md yourself to stop a feed early (the reason is reported by check_corpus).
 // Exact post time comes from the activity id in the "Embed this post" menu link
 // (LinkedIn ids carry a millisecond timestamp in their top 41 bits).
 // Resumable: the tab stays scrolled between runs; posts are deduped by URN.
@@ -16,7 +18,9 @@ let ROOT = null, FEED = null;
 for (const subject of PROJECT.subjects) {
   const cfg = JSON.parse(await fs.readFile(`${BASE}/${subject}/config.json`, "utf8").catch(() => "{}"));
   const dir = `${BASE}/${subject}`;
-  if (!ROOT && cfg.linkedin_feed && !(await fs.stat(`${dir}/raw/social/linkedin/_done`).catch(() => null))) {
+  const li = `${dir}/raw/social/linkedin`;
+  const finished = (await fs.stat(`${li}/_done`).catch(() => null)) || (await fs.stat(`${li}/_gap.md`).catch(() => null));
+  if (!ROOT && cfg.linkedin_feed && !finished) {
     ROOT = dir;
     FEED = cfg.linkedin_feed;
   }
@@ -135,5 +139,10 @@ while (saved < MAX_POSTS_PER_RUN && oldStreak < 4 && idleScrolls < 6) {
   }
   await scrollFeed();
 }
+const total = (await fs.readFile(OUT, "utf8").catch(() => "")).split("\n").filter(Boolean).length;
 if (oldStreak >= 4) await fs.writeFile(`${OUT_DIR}/_done`, `reached ${oldest} at ${new Date().toISOString()}\n`);
+else if (idleScrolls >= 6 && total === 0)
+  await fs.writeFile(`${OUT_DIR}/_gap.md`, `No posts loaded from ${FEED} (${new Date().toISOString()}): check that the user is logged in and the URL is right, then delete this file and rerun.\n`);
+else if (idleScrolls >= 6)
+  await fs.writeFile(`${OUT_DIR}/_done`, `feed ended at ${oldest} (no more posts loaded) at ${new Date().toISOString()}\n`);
 console.log({ subject: ROOT.slice(BASE.length + 1), saved, oldest, reachedCutoff: oldStreak >= 4, idle: idleScrolls >= 6 });

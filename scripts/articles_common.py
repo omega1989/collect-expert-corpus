@@ -4,7 +4,7 @@ The subject comes from the SUBJECT env var (e.g. SUBJECT=experts/jane-doe).
 write(item, body_md, kind=...) puts files in <subject>/raw/<kind>/<source_slug>/<date>_<slug>.md,
 kind = "articles" (default), "web" (official guides / help pages) or "talks" (webinars, conference talks).
 """
-import json, os, re, time, unicodedata, datetime as dt
+import hashlib, json, os, re, time, unicodedata, datetime as dt
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from urllib.parse import urlparse
@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 
 ROOT = Path(__file__).resolve().parent.parent / os.environ["SUBJECT"]
 OUT = ROOT / "raw" / "articles"
-UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+UA = "Mozilla/5.0 (compatible; collect-expert-corpus research script; +https://github.com/omega1989/collect-expert-corpus)"
 S = requests.Session(); S.headers["User-Agent"] = UA
 FETCHED = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 from common import SINCE as WIN_START, UNTIL as WIN_END  # noqa: E402
@@ -154,7 +154,11 @@ def write(item, body_md, index=None, kind="articles"):
     A talk without transcript: body_md containing "(no transcript in feed)" + item["audio"] = video page URL,
     then tools/transcribe.py fills it with Whisper."""
     d = item["date"]
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", d or ""), (
+        f"date must be YYYY-MM-DD, got {d!r}: for undated pages use the fetch date + date_type 'undated (fetched …)'")
     path = ROOT / "raw" / kind / item["source_slug"] / f"{d}_{slugify(item['title'])}.md"
+    if path.exists() and f"url: {yq(item['url'])}" not in path.read_text():  # same day + title, different page
+        path = path.with_name(f"{path.stem}-{hashlib.sha1(item['url'].encode()).hexdigest()[:6]}.md")
     path.parent.mkdir(parents=True, exist_ok=True)
     fm = ["---", f"type: {kind.rstrip('s')}", f"source: {yq(item['source'])}", f"title: {yq(item['title'])}", f"date: {yq(d)}"]
     if item.get("date_type"): fm.append(f"date_type: {item['date_type']}")

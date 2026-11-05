@@ -1,6 +1,9 @@
 // Fetch YouTube transcripts through ego-browser (the user's real browser), using the
 // "Show transcript" panel. Walks every subject's raw/youtube/_queue.txt (project.json subjects),
 // skips ids already done or failed. Resumable; run repeatedly until "remaining 0".
+// Permanent failures (no transcript on the video) go to _transcript_fail.txt at once; transient ones
+// (timeouts, consent/login pages) go to _transcript_retry.txt and become permanent after 3 tries.
+// Waits 3–8 s between videos (human pace).
 // Usage: ego-browser nodejs < tools/yt_transcript.mjs
 const BASE = "__PROJECT_DIR__"; // filled in by init_project.py
 const BATCH = 40;
@@ -19,9 +22,11 @@ for (const subject of PROJECT.subjects) {
   await fs.mkdir(out, { recursive: true });
   const done = new Set((await fs.readdir(out)).map((f) => f.replace(".json", "")));
   const failed = new Set((await lines(`${yt}/_transcript_fail.txt`)).map((l) => l.split("|")[0]));
+  const tries = {};
+  for (const l of await lines(`${yt}/_transcript_retry.txt`)) tries[l.split("|")[0]] = (tries[l.split("|")[0]] || 0) + 1;
   for (const id of queue) {
     if (done.has(id) || failed.has(id)) continue;
-    if (jobs.length < BATCH) jobs.push({ id, OUT: out, FAIL: `${yt}/_transcript_fail.txt` });
+    if (jobs.length < BATCH) jobs.push({ id, OUT: out, FAIL: `${yt}/_transcript_fail.txt`, RETRY: `${yt}/_transcript_retry.txt`, tries: tries[id] || 0 });
     else remaining++;
   }
 }
@@ -30,7 +35,9 @@ const task = await taskSpace("expert-corpus");
 const page = task.page("p1");
 let ok = 0;
 
-for (const { id, OUT, FAIL } of jobs) {
+const PERMANENT = /no transcript button|empty transcript/;
+for (const [n, { id, OUT, FAIL, RETRY, tries }] of jobs.entries()) {
+  if (n) await page.waitForTimeout(3000 + Math.random() * 5000);
   try {
     await page.goto(`https://www.youtube.com/watch?v=${id}`, { timeout: 45000 }).catch(() => {});
     await page.waitForSelector("ytd-watch-metadata", { timeout: 20000 });
@@ -77,8 +84,14 @@ for (const { id, OUT, FAIL } of jobs) {
     ok++;
     console.log(`ok ${id} ${data.segments.length} segs ${data.language}`);
   } catch (e) {
-    await fs.appendFile(FAIL, `${id}|${String(e.message).split("\n")[0]}\n`);
-    console.log(`FAIL ${id} ${e.message.split("\n")[0]}`);
+    const reason = String(e.message).split("\n")[0];
+    if (PERMANENT.test(reason) || tries >= 2) {
+      await fs.appendFile(FAIL, `${id}|${PERMANENT.test(reason) ? reason : `gave up after 3 tries: ${reason}`}\n`);
+      console.log(`FAIL ${id} ${reason}`);
+    } else {
+      await fs.appendFile(RETRY, `${id}|${reason}\n`);
+      console.log(`RETRY later ${id} (try ${tries + 1}/3) ${reason}`);
+    }
   }
 }
 

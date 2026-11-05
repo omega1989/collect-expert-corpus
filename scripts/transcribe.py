@@ -8,6 +8,7 @@ Usage:
 Transcripts are cached in raw/_whisper/<parent>/<stem>.txt, then replace the placeholder.
 """
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -65,12 +66,20 @@ def merge(f, txt):
     f.write_text(f.read_text().replace(PLACEHOLDER, body).replace("transcript_available: false", "transcript_available: true"))
 
 
+def preflight():
+    missing = [t for t in ("ffmpeg", "whisper-cli") if not shutil.which(t)]
+    missing += [str(MODEL)] if not MODEL.exists() else []
+    if missing:
+        raise SystemExit(f"missing: {', '.join(missing)} — see README (brew install ffmpeg whisper-cpp + model download)")
+
+
 if __name__ == "__main__":
     roots = subjects() if sys.argv[1] == "all" else [load()["root"]]
     items = [it for r in roots for it in pending(r)]
     for root, f, url in items:
         print(f.relative_to(BASE), url[:80])
     if sys.argv[2] == "run":
+        preflight()
         for i, (root, f, url) in enumerate(items, 1):
             try:
                 merge(f, transcribe(root, f, url))

@@ -14,7 +14,7 @@ from collections import defaultdict
 from pathlib import Path
 from urllib.parse import urlparse
 
-from common import BASE, PROJECT, SINCE, UNTIL, load, subjects
+from common import BASE, PROJECT, SINCE, UNTIL, ids_from, load, subjects
 
 CFG = ROOT = RAW = None  # set per subject in build()
 
@@ -40,8 +40,7 @@ def build_youtube(index):
     meta_dir, tr_dir = RAW / "youtube" / "meta", RAW / "youtube" / "transcripts"
     out = RAW / "youtube" / "md"
     out.mkdir(parents=True, exist_ok=True)
-    excl = RAW / "youtube" / "_exclude.txt"
-    exclude = {l.split()[0] for l in excl.read_text().splitlines() if l.strip() and not l.startswith("#")} if excl.exists() else set()
+    exclude = set(ids_from(RAW / "youtube" / "_exclude.txt"))
     for f in tr_dir.glob("*.json"):
         if f.stem in exclude:
             continue
