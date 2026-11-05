@@ -32,7 +32,7 @@ To use it, just ask Claude Code, for example:
    mkdir -p ~/.cache/whisper && curl -L -o ~/.cache/whisper/ggml-large-v3-turbo-q5_0.bin \
      https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
    ```
-4. **ego lite (the `ego-browser` command).** Install the ego lite app and finish its first-run onboarding. Onboarding adds the `ego-browser` command. This step is only needed for YouTube transcripts and LinkedIn.
+4. **ego lite (the `ego-browser` command).** Download it from https://lite.ego.app/download, install the app, and finish its first-run onboarding. Onboarding adds the `ego-browser` command. This step is only needed for YouTube transcripts and LinkedIn.
 5. **The skill.**
    ```bash
    git clone https://github.com/omega1989/collect-expert-corpus.git ~/.claude/skills/collect-expert-corpus
