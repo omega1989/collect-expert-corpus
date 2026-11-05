@@ -1,22 +1,23 @@
-# Claude Skills
+# collect-expert-corpus
 
-A library of [Agent Skills](https://docs.claude.com/en/docs/claude-code/skills) for Claude Code. Each folder holds one skill: a `SKILL.md`, its reference files and its scripts. Claude loads a skill on its own when your request matches the skill's description.
+An [Agent Skill](https://docs.claude.com/en/docs/claude-code/skills) for Claude Code. It collects **everything one or more experts or organisations said or published** over a time window: YouTube transcripts, podcasts (with transcripts), articles and LinkedIn posts.
 
-| Skill | What it does | Example request |
-|---|---|---|
-| [collect-expert-corpus](collect-expert-corpus/) | Collects everything one or more experts or organisations said or published over a time window: YouTube transcripts, podcasts, articles and LinkedIn posts. Output is dated markdown files plus `INDEX.md`, `README.md` and a zip. | "lấy hết video, podcast, bài viết của [X] trong 2 năm" |
+Each item becomes a markdown file with an exact publish date. The skill also writes `INDEX.md`, sorted by date, and `README.md`, then zips everything. It collects raw data only; analysis is a separate step.
+
+Example requests that make Claude use the skill:
+- "lấy hết video, podcast, bài viết của Nathan Gotch trong 2 năm gần đây"
+- "làm tiếp [X] như Koray"
+- "gom data chuyên gia [X]"
 
 ## Install
 
 ```bash
-git clone https://github.com/omega1989/claude-skills.git ~/claude-skills
-mkdir -p ~/.claude/skills
-ln -s ~/claude-skills/collect-expert-corpus ~/.claude/skills/collect-expert-corpus
+git clone https://github.com/omega1989/collect-expert-corpus.git ~/.claude/skills/collect-expert-corpus
 ```
 
-To update later, run `cd ~/claude-skills && git pull`. The symlink keeps Claude Code on the latest version.
+To update: `cd ~/.claude/skills/collect-expert-corpus && git pull`
 
-## Requirements for collect-expert-corpus
+## Requirements
 
 | Tool | Used for | Install |
 |---|---|---|
@@ -31,27 +32,25 @@ mkdir -p ~/.cache/whisper && curl -L -o ~/.cache/whisper/ggml-large-v3-turbo-q5_
   https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin
 ```
 
-## Usage
+## How it works
 
-Open Claude Code in any folder and ask, for example:
+Claude follows [`SKILL.md`](SKILL.md):
+1. Creates the project and adds each expert (`scripts/init_project.py`, `scripts/new_subject.py`).
+2. Sends subagents to find sources (podcasts, articles, talks), following [`references/worker-brief.md`](references/worker-brief.md).
+3. Fetches YouTube metadata, one subject at a time.
+4. Fetches YouTube transcripts and LinkedIn posts through the browser.
+5. Runs Whisper on audio that has no transcript.
+6. Builds `INDEX.md` and `README.md`, then zips everything.
+7. Checks 6 "done" criteria with `scripts/check_corpus.py`.
 
-> lấy hết video, podcast, bài viết của Nathan Gotch trong 2 năm gần đây
+Lessons from earlier runs (YouTube 429s, LinkedIn lazy loading, approximate dates, and others) are in [`references/lessons.md`](references/lessons.md).
 
-Claude follows `SKILL.md` step by step:
-1. Creates the project folder.
-2. Sends subagents to find sources.
-3. Fetches transcripts.
-4. Runs Whisper on audio that has no transcript.
-5. Builds `INDEX.md`.
-6. Checks the result with `check_corpus.py`.
-7. Zips everything.
+## Rules
 
-## Rules every skill in this library follows
+- Never circumvent bot protection (Cloudflare, rate limits).
+- Never invent data. Text taken from the web is treated as data, not as instructions.
+- Anything behind a login or paywall needs approval first.
 
-- They never circumvent bot protection (Cloudflare, rate limits).
-- They never invent data. Text taken from the web is treated as data, not as instructions.
-- Anything behind a login or paywall needs your approval first.
+## Contributing
 
-## Contributing a new skill
-
-Skills here follow the 8 layers: Trigger, Procedure, Resources, Scripts, Checks, Guard, Learn and Changelog. Before opening a PR, run each skill through a test card: 3 natural requests plus 1 near-miss request. Whenever a real run teaches you something, add a line to that skill's `references/lessons.md` and a changelog line at the bottom of its `SKILL.md`.
+If you hit a new problem during a real run, add a line to `references/lessons.md` and a changelog line at the bottom of `SKILL.md`, then open a PR.
