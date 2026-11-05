@@ -63,7 +63,7 @@ All tools are in `<PROJECT_DIR>/tools/`; Python is `<PROJECT_DIR>/.venv/bin/pyth
 5. **Articles, web and talks:**
    - Collect the full text.
    - Dates come from the page (meta tags, JSON-LD, or a visible date).
-   - If a date is approximate, add `date_type: approximate` and a note.
+   - If only the month is known, use the 1st of that month with `date_type: approximate` and a note saying why.
 6. **Write `<subject>/NOTES.md`** in the user's language, keeping technical terms in English. Include:
    - a table of every source found, with counts;
    - what was collected;

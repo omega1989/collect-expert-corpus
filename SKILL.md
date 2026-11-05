@@ -17,12 +17,12 @@ Collect raw data first; analysis is a separate job. Every file carries an exact 
 ## Procedure
 1. **Look.**
    - Read `references/lessons.md`.
-   - If `<dir>/project.json` exists, resume: run `python3 <skill>/scripts/init_project.py <dir> --update-tools` and skip step 2.
+   - If `<dir>/project.json` exists, resume: run `python3.12 <skill>/scripts/init_project.py <dir> --update-tools` and skip step 2.
    - If the subjects or the topic are unclear, ask once and stop.
    - If the user asked you to *choose* the experts, research candidates first and propose two per group, each with its sources. Wait for confirmation.
 2. **Init.** Run:
-   - `python3 <skill>/scripts/init_project.py <dir> --title "<title>" [--years N]`. It needs Python 3.11 or newer.
-   - Then, per subject, `python3 <skill>/scripts/new_subject.py <dir> <path> --name … --kind person|org --match … --speaker …`.
+   - `python3.12 <skill>/scripts/init_project.py <dir> --title "<title>" [--years N]`. Any Python 3.11+ works; the macOS `python3` (3.9) does not.
+   - Then, per subject, `python3.12 <skill>/scripts/new_subject.py <dir> <path> --name … --kind person|org --match … --speaker …`.
    
    Fix every warning that `init_project` prints before step 5.
 3. **Ask about logged-in sources, once per project.** YouTube transcripts and LinkedIn come through the user's own logged-in ego-browser. Tell the user that:
@@ -105,3 +105,6 @@ Owner: omega1989. Before shipping a change, run `references/test-card.md`.
   - Podcast and article writers no longer crash or overwrite.
   - Checks no longer pass on their own.
   - Unused curl-cffi is removed, and the scripts send an honest User-Agent.
+- 2026-11-05 v2.1: the age-gated-video message no longer reads as a rate limit; `python3.12` named explicitly; LinkedIn needs 2 idle runs in a row before `_done` ("feed ended"); podcast error list is reset each run.
+  - Re-review: scorecard 10/10. Offline replay set 10/10.
+  - Trigger tests on 2026-11-05 (fresh `claude -p` sessions, 3 runs per ask): asks 1–3 loaded 3/3 each; the near-miss stayed off 3/3.

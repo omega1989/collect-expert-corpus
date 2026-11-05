@@ -100,6 +100,7 @@ def collect():
             )
             n += 1
             print(f"{date}  {show}  {title[:80]}", flush=True)
+    (POD / "_collect_errors.txt").unlink(missing_ok=True)
     if errors:
         (POD / "_collect_errors.txt").write_text("\n".join(errors) + "\n")
     print(f"wrote {n} episodes; {len(errors)} feed/item errors" + (" (see raw/podcasts/_collect_errors.txt)" if errors else ""))

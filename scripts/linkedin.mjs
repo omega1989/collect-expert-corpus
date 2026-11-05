@@ -143,6 +143,8 @@ const total = (await fs.readFile(OUT, "utf8").catch(() => "")).split("\n").filte
 if (oldStreak >= 4) await fs.writeFile(`${OUT_DIR}/_done`, `reached ${oldest} at ${new Date().toISOString()}\n`);
 else if (idleScrolls >= 6 && total === 0)
   await fs.writeFile(`${OUT_DIR}/_gap.md`, `No posts loaded from ${FEED} (${new Date().toISOString()}): check that the user is logged in and the URL is right, then delete this file and rerun.\n`);
-else if (idleScrolls >= 6)
-  await fs.writeFile(`${OUT_DIR}/_done`, `feed ended at ${oldest} (no more posts loaded) at ${new Date().toISOString()}\n`);
+else if (idleScrolls >= 6 && (await fs.stat(`${OUT_DIR}/_idle_once`).catch(() => null)))
+  await fs.writeFile(`${OUT_DIR}/_done`, `feed ended at ${oldest} (no more posts loaded in 2 runs) at ${new Date().toISOString()}\n`);
+else if (idleScrolls >= 6) await fs.writeFile(`${OUT_DIR}/_idle_once`, `${new Date().toISOString()}\n`); // maybe just slow
+else await fs.rm(`${OUT_DIR}/_idle_once`, { force: true });
 console.log({ subject: ROOT.slice(BASE.length + 1), saved, oldest, reachedCutoff: oldStreak >= 4, idle: idleScrolls >= 6 });

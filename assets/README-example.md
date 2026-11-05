@@ -41,7 +41,7 @@ Front matter mỗi file có `date` + `url`, cộng các trường lọc: `subjec
 ## Lưu ý chất lượng
 
 1. Transcript YouTube phần lớn là auto-caption (một số video Jane upload phụ đề English US — chính xác hơn). Không có nhãn người nói.
-2. Trùng lặp: chuỗi phỏng vấn **a frequent co-host** (AI visibility trackers, agentic website builders, AI employees, multi-agent, search everywhere optimization…) có ở cả YouTube lẫn podcast FatRank / a frequent co-host Podcast / AI SEO & Business Automation; YouTube đã chỉ giữ 1 bản mỗi buổi.
+2. Trùng lặp: cùng một buổi phỏng vấn có thể nằm ở cả YouTube lẫn 2–3 podcast khác nhau; YouTube chỉ giữ 1 bản mỗi buổi (bản còn lại trong `_exclude.txt`).
 3. Phần lớn video kênh Jane là nội dung hướng dẫn + quảng bá ExampleTool/the product; khi phân tích nên tách phần pitch sản phẩm.
 
 ## Chỗ còn thiếu
@@ -57,4 +57,4 @@ Front matter mỗi file có `date` + `url`, cộng các trường lọc: `subjec
 
 ## Tools
 
-Giống `../koray-gubur/tools/` (xem README bên đó). `build_md.py` gộp JSON → markdown + INDEX; `transcribe.py` chạy Whisper local; `.mjs` chạy qua `ego-browser nodejs < tools/<file>.mjs`.
+Bản copy của `scripts/` trong skill: `build_md.py` gộp JSON → markdown + INDEX; `transcribe.py` chạy Whisper local; `.mjs` chạy qua `ego-browser nodejs < tools/<file>.mjs`.

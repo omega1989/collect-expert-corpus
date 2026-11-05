@@ -155,7 +155,8 @@ def write(item, body_md, index=None, kind="articles"):
     then tools/transcribe.py fills it with Whisper."""
     d = item["date"]
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", d or ""), (
-        f"date must be YYYY-MM-DD, got {d!r}: for undated pages use the fetch date + date_type 'undated (fetched …)'")
+        f"date must be YYYY-MM-DD, got {d!r}: month-only dates → first of month + date_type 'approximate'; "
+        "undated pages → fetch date + date_type 'undated (fetched …)'")
     path = ROOT / "raw" / kind / item["source_slug"] / f"{d}_{slugify(item['title'])}.md"
     if path.exists() and f"url: {yq(item['url'])}" not in path.read_text():  # same day + title, different page
         path = path.with_name(f"{path.stem}-{hashlib.sha1(item['url'].encode()).hexdigest()[:6]}.md")

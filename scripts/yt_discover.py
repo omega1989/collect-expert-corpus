@@ -27,7 +27,7 @@ APPROX_SINCE = days_before(SINCE, 92).replace("-", "")  # flat-listing dates are
 MIN_SECONDS = 75  # shorter = Shorts / teasers, skipped
 
 
-BLOCKED = re.compile(r"HTTP Error 429|confirm you.re not a bot|Sign in to confirm", re.I)
+BLOCKED = re.compile(r"HTTP Error 429|confirm you.re not a bot", re.I)  # not "confirm your age": that is per-video
 ERRLOG = YT / "_ytdlp_errors.log"
 
 
