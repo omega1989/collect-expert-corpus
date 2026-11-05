@@ -69,3 +69,4 @@ Raw data first, analysis later. Every file carries an exact `date`. The user is 
 ## Changelog
 - 2026-11-05 v1: built from the Koray Gübür, Nathan Gotch and ad-creation runs. Scripts generalised via `project.json`.
 - 2026-11-05 v1.1: four parallel workers running `yt_discover meta` got YouTube to answer 429 / bot check. Moved `meta` to the lead and made it serial (step 4).
+- 2026-11-05 v1.2: `articles_common.save_index` now creates `raw/articles/` itself; it used to crash for subjects with only talks.

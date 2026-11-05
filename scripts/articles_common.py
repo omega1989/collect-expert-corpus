@@ -146,6 +146,7 @@ def load_index():
 def save_index(items):
     seen = {}
     for x in items: seen[x["file"]] = x
+    INDEX_FILE.parent.mkdir(parents=True, exist_ok=True)  # subjects with only talks/web have no articles/ yet
     INDEX_FILE.write_text(json.dumps(list(seen.values()), ensure_ascii=False, indent=1), encoding="utf-8")
 
 def write(item, body_md, index=None, kind="articles"):
